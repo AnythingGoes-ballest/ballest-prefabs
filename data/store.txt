@@ -1,0 +1,14 @@
+# fake store (local test data, made by the site's Generators): slug, name, uploader id, uploader name, created, hearts, tags, pieces, bytes, w, d, h, description
+sign	Wrong way sign	76561199000100001	builder_a	2026-10-05T10:00:00.000Z	2	Decoration	59	38439	0.2	12.0	4.0	A road sign on two posts.
+stairs	Stairs	76561199000100002	builder_b	2026-10-06T11:00:00.000Z	5	Structure	32	18109	6.0	1.5	4.9	Steps up to a ledge.
+bridge	Bridge	76561199000100003	builder_c	2026-10-07T12:00:00.000Z	11	Structure	57	35055	3.0	16.1	3.8	A span with rails.
+spiral	Spiral ramp	76561199000100001	builder_a	2026-10-08T13:00:00.000Z	19	Ramp,Structure	145	96915	15.5	15.5	9.5	A ramp that winds up a full turn.
+loop	Loop	76561199000100004	builder_d	2026-10-09T14:00:00.000Z	22	Loop,Obstacle	102	68074	16.3	7.0	8.7	A full loop for the ball.
+jump	Jump	76561199000100002	builder_b	2026-10-10T15:00:00.000Z	9	Ramp,Obstacle	45	27115	30.2	3.3	4.7	A kicker with a landing.
+plinko	Plinko board	76561199000100003	builder_c	2026-10-11T16:00:00.000Z	14	Obstacle	41	24360	8.7	6.0	7.0	Pegs to bounce through.
+fountain	Fountain	76561199000100004	builder_d	2026-10-12T17:00:00.000Z	6	Decoration,Scenery	33	19902	6.0	6.0	2.8	A round fountain for a plaza.
+trophy	Trophy	76561199000100001	builder_a	2026-10-13T18:00:00.000Z	3	Decoration	20	12930	1.8	2.4	4.0	A cup for the finish.
+fence	Fence	76561199000100002	builder_b	2026-10-14T19:00:00.000Z	4	Scenery	111	69376	0.1	10.1	1.3	A long picket fence.
+tree	Tree	76561199000100003	builder_c	2026-10-15T10:00:00.000Z	7	Scenery	40	25783	6.1	6.0	7.2	A leafy tree.
+house	House	76561199000100004	builder_d	2026-10-16T11:00:00.000Z	12	Structure,Scenery	154	87801	7.9	9.8	9.3	A two-storey house with a red roof.
+tower	Tower	76561199000100001	builder_a	2026-10-17T12:00:00.000Z	8	Structure	92	52174	15.2	14.0	96.9	A very tall tower.

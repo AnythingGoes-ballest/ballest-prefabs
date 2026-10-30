@@ -1,0 +1,12 @@
+[meta]
+name = "Prefabs"
+version = "0.1.0"
+author = "AnythingGoes"
+description = "Your prefabs in a tab of the track editor: make one from the selection, place one with a click (grouped, selected), replace one and keep its old versions. A store to browse, download and publish them (ballestrecords.com)."
+min_host = "0.33.0"
+
+[script]
+files = ["util.as", "server.as", "fakestore.as", "library.as", "place.as", "main.as", "tab.as", "store.as"]
+
+[net]
+domains = ["ballestrecords.com"]
