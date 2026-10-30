@@ -13,6 +13,7 @@ namespace Store
 {
 
 UI::Window@ win;
+UI::Window@ dim;                // the screen behind the store, darkened while it is open (a click on it closes the store)
 int browseView, mineView, view;
 UI::Button@ browseTab, mineTab, closeButton, popularButton, newestButton;
 array<UI::Button@> tagChips;
@@ -42,6 +43,12 @@ int shownChanges = -1;
 
 void Build()
 {
+    @dim = UI::CreateWindow();
+    dim.SetScreenSize(1, 1);
+    dim.SetBackground(0, 0, 0, 0.6f);
+    dim.SetBlocksClicks(true);
+    dim.zOrder = 449;               // just behind the store
+    dim.visible = false;
     @win = UI::CreateWindow();
     win.SetScreenSize(0.74f, 0.84f);
     win.SetBackground(WINDOW_R, WINDOW_G, WINDOW_B, 0.97f);
@@ -127,6 +134,7 @@ void PaintFilters()
 
 void Open()
 {
+    dim.visible = true;
     win.visible = true;
     UI::SetCursorVisible(true);
     dirty = true;
@@ -143,6 +151,7 @@ void OpenSearching(const string &in text)
 
 void Close()
 {
+    dim.visible = false;
     win.visible = false;
     UI::SetCursorVisible(false);
 }
@@ -470,7 +479,8 @@ void Update()
 {
     if (!win.visible)
         return;
-    if (closeButton.Clicked() || (Input::Pressed(Input::Escape) && !search.focused))
+    if (closeButton.Clicked() || (Input::Pressed(Input::Escape) && !search.focused)
+        || (Input::Pressed(Input::MouseLeft) && !win.hovered))
     {
         Close();
         return;
