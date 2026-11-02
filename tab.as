@@ -1,30 +1,30 @@
-// The prefabs tab in the editor's left panel (Window.DockInEditorTab: a fifth button after the game's four):
-//   prefabs                                     7
-//   [ create from selection (12) ]
-//   [ open the prefab store ]
+// The prefabs tab in the editor's left panel (Window.DockInEditorTab: a fifth button after the game's four), a quick
+// view to find a prefab and place it:
+//   prefabs                              [cart] [+]
 //   [ filter my prefabs             ]
-//   local only 2
-//     [pic] loop gate          [place] [more]
-//           18 pieces · 6.2 × 3 × 4 m
-//           not published
-//   published by you 2 ...   downloaded 3 ...
-// "more" opens a prefab's page (place, replace with the selection, edit, publish, versions, delete); "create" opens the
-// form (name, description, tags, the selection checked against the game's rules).
+//   v local only 2
+//     [pic] loop gate               [more]      (a click anywhere on the card but "more" places it)
+//   > published by you 2   (folded)
+//   v downloaded 3 ...
+// The cart opens the store, + the form for a new prefab from the selection (name, description, tags, checked against
+// the game's rules). "more" opens a prefab's page (place, replace with the selection, edit, picture, publish,
+// versions, delete). Each section folds; which are folded is kept.
 // Widths are layout units: the tab's panel has about 330 for its content, a card's text beside its picture 222.
-const float PANEL_W = 330, CARD_TEXT_W = 222;
+const float PANEL_W = 330, CARD_TEXT_W = 222, CARD_NAME_W = 150;
 
 namespace Tab
 {
 
 UI::Window@ win;
 int listView, formView, detailView;
-UI::Text@ countText, statusText;
+UI::Text@ statusText;
 UI::Button@ createButton, storeButton;
 UI::TextInput@ filterInput;
 
 // the list
 array<Library::Rec@> rowRecs;
-array<UI::Button@> placeButtons, moreButtons;
+array<int> rowCards;
+array<UI::Button@> moreButtons, foldButtons;
 string shownFilter;
 int shownChanges = -1, listChanges = -1;
 bool listDirty = true;
@@ -63,14 +63,14 @@ void Build()
     win.StartHeader();
     win.AddText("prefabs", 26);
     win.AddSpace(0);
-    @countText = win.AddText("", 15);
-    Muted(countText);
-    win.NewRow();
-    @createButton = win.AddButton("create from selection");
-    Primary(createButton);
-    win.NewRow();
-    @storeButton = win.AddButton("open the prefab store");
+    @storeButton = win.AddIconButton(Plugins::Folder() + "cart.png");
+    storeButton.SetSize(30, 44);
+    storeButton.SetTooltip("open the prefab store");
     Secondary(storeButton);
+    @createButton = win.AddIconButton(Plugins::Folder() + "plus.png");
+    createButton.SetSize(30, 44);
+    createButton.SetTooltip("create a prefab from the selection");
+    Primary(createButton);
     win.NewRow();
     @filterInput = win.AddTextInput(0, "filter my prefabs", 15);
     filterInput.clearOnSubmit = false;
@@ -94,7 +94,6 @@ void Show(int v)
     createButton.visible = list;
     storeButton.visible = list;
     filterInput.visible = list;
-    countText.visible = list;
 }
 
 // --- the list ---------------------------------------------------------------------------------------------------------
@@ -154,9 +153,9 @@ void RebuildList()
     listDirty = false;
     win.ClearView(listView);
     rowRecs.resize(0);
-    placeButtons.resize(0);
+    rowCards.resize(0);
     moreButtons.resize(0);
-    countText.text = Library::recs.length() + " on this PC";
+    foldButtons.resize(0);
     array<string> titles = {"local only", "published by you", "downloaded"};
     for (uint s = 0; s < 3; s++)
     {
@@ -168,37 +167,34 @@ void RebuildList()
             if (section == s && Matches(r, shownFilter))
                 rows.insertLast(r);
         }
+        bool folded = Folded(int(s));
         win.NewRow();
+        UI::Button@ fold = win.AddIconButton(folded ? "play" : "down");
+        fold.SetSize(26, 22);
+        fold.SetTooltip(folded ? "show " + titles[s] : "fold " + titles[s]);
+        fold.SetBackground(0, 0, 0, 0);
+        foldButtons.insertLast(fold);
         win.AddText(titles[s], 19);
         Muted(win.AddText("" + rows.length(), 14));
+        if (folded)
+            continue;
         if (rows.length() == 0)
         {
             win.NewRow();
-            Muted(win.AddText(s == 0 ? "none: select pieces and create one" : (s == 1 ? "none yet" : "none: find some in the store"), 13));
+            Muted(win.AddText(s == 0 ? "none: select pieces and press +" : (s == 1 ? "none yet" : "none: find some in the store"), 13));
         }
         for (uint i = 0; i < rows.length(); i++)
         {
             Library::Rec@ r = rows[i];
-            win.StartCard();
+            int card = win.StartCard(true);
             win.AddImage(ThumbOf(r.thumb), 64, 40);
-            Wrapped(win.AddText(Shorten(r.name, 40), 16), CARD_TEXT_W);
-            win.NewRow();
-            win.AddSpace(64);
-            Muted(Wrapped(win.AddText(Meta(r), 12), CARD_TEXT_W));
-            win.NewRow();
-            win.AddSpace(64);
-            float red, green, blue;
-            string badge = Badge(r, red, green, blue);
-            Wrapped(win.AddText(badge, 12), CARD_TEXT_W).SetColor(red, green, blue, 1);
-            win.NewRow();
-            win.AddSpace(64);
-            UI::Button@ place = win.AddButton("place");
-            Primary(place);
+            Wrapped(win.AddText(Shorten(r.name, 40), 16), CARD_NAME_W);
+            win.AddSpace(0);
             UI::Button@ more = win.AddButton("more");
             Secondary(more);
             win.EndCard();
             rowRecs.insertLast(r);
-            placeButtons.insertLast(place);
+            rowCards.insertLast(card);
             moreButtons.insertLast(more);
         }
     }
@@ -616,7 +612,21 @@ void PlaceRec(Library::Rec@ r)
 {
     int count;
     string failed = Place::Place(r.file, count);
-    Jobs::Say(failed == "" ? "placed “" + Shorten(r.name, 18) + "” (" + count + ")" : failed, failed != "");
+    if (failed != "")
+        Jobs::Say(failed, true);
+    else if (Jobs::messageBad)
+        Jobs::Say("", false);           // an old problem is over once a prefab is placed
+}
+
+// Which sections of the list are folded (kept in storage).
+bool Folded(int section) { return Storage::Get("tab.folded", "").findFirst("|" + section + "|") >= 0; }
+
+void SetFolded(int section, bool on)
+{
+    string all = Replace(Storage::Get("tab.folded", ""), "|" + section + "|", "");
+    if (on)
+        all += "|" + section + "|";
+    Storage::Set("tab.folded", all);
 }
 
 // --- each frame -------------------------------------------------------------------------------------------------------
@@ -639,7 +649,7 @@ void Update()
     }
     UpdatePicture();
     statusText.text = Jobs::message;
-    statusText.visible = Jobs::message != "";
+    statusText.visible = Jobs::message != "" && (view != listView || Jobs::messageBad);
     if (Jobs::messageBad)
         statusText.SetColor(BAD_R, BAD_G, BAD_B, 1);
     else
@@ -650,7 +660,6 @@ void Update()
             RebuildList();
         int count;
         string problem = SelectionProblem(count);
-        createButton.label = count > 0 ? "create from selection (" + count + ")" : "create from selection";
         if (createButton.Clicked())
         {
             if (problem != "")
@@ -660,15 +669,21 @@ void Update()
         }
         if (storeButton.Clicked())
             Store::Open();
+        for (uint i = 0; i < foldButtons.length(); i++)
+            if (foldButtons[i].Clicked())
+            {
+                SetFolded(int(i), !Folded(int(i)));
+                listDirty = true;
+            }
         for (uint i = 0; i < rowRecs.length(); i++)
         {
-            if (placeButtons[i].Clicked())
-                PlaceRec(rowRecs[i]);
             if (moreButtons[i].Clicked())
             {
                 OpenDetail(rowRecs[i]);
                 return;
             }
+            if (win.CardClicked(rowCards[i]))
+                PlaceRec(rowRecs[i]);
         }
     }
     else if (view == formView)

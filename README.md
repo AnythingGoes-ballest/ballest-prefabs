@@ -5,20 +5,21 @@ Your prefabs in the track editor, and a store to share them, as a plugin for the
 
 ## In the editor: the prefabs tab
 
-A fifth tab in the editor's left panel, after pieces, details, world settings and the outliner:
+A fifth tab in the editor's left panel, after pieces, details, world settings and the outliner: a quick view to find a
+prefab and place it.
 
-- **create from selection**: the selected pieces saved as a new prefab (name, description, up to 3 tags), checked
-  against the game's own rules first (2 to 4,096 pieces, never the start pad). **save and publish** puts it on the
-  store too.
-- Your prefabs in three groups: **local only** (made here, not published), **published by you**, and **downloaded**.
-- **place** puts one in front of the camera the way the game's `spawnprefab` does: one group, selected, ready to move.
-  With Create Extensions running, it lands where Create Extensions puts new pieces: its placement distance further
-  along the view, on whole units (the whole prefab moved by one offset, so its pieces stay where they are to each
-  other).
+- **cart** (top right) opens the store; **+** makes a new prefab from the selection (name, description, up to 3 tags),
+  checked against the game's own rules first (2 to 4,096 pieces, never the start pad). Saving takes its picture from
+  the editor's view; **save and publish** puts it on the store too.
+- Your prefabs in three groups, each folded or opened with its arrow: **local only** (made here, not published),
+  **published by you**, and **downloaded**. A card is the prefab's picture and name: click it to place the prefab the
+  way the game's `spawnprefab` does (one group, selected, ready to move). With Create Extensions running, it lands
+  where Create Extensions puts new pieces: its placement distance further along the view, on whole units (the whole
+  prefab moved by one offset, so its pieces stay where they are to each other).
 - **more** opens a prefab's page: place it, **replace with the selection** (the old file is kept as a version you can
-  put back), edit its name, description and tags, publish it or publish a new version, delete it from this PC or
-  from the store. A prefab downloaded from someone else is only placed, updated from the store or deleted from this PC:
-  replacing and editing are for your own.
+  put back), edit its name, description and tags, take a new picture from the view, publish it, delete it from this PC
+  or from the store. A prefab downloaded from someone else is only placed, updated from the store or deleted from this
+  PC: replacing, editing and pictures are for your own.
 
 ## The prefab store
 
