@@ -47,6 +47,9 @@ UI::Button@ backButton, placeButton, replaceButton, editButton, publishButton, u
 int pictureStep = 0;
 double pictureAt = 0;
 Library::Rec@ pictureOf;
+array<int> pictureSelection;    // selected again once the picture is taken
+bool pictureQuiet = false;      // taken as a new prefab is saved: the save's own message stays
+UI::Text@ pictureHint;
 array<UI::Button@> putBackButtons;
 bool confirmReplace = false, confirmDelete = false, confirmUnpublish = false;
 int view = 0;
@@ -229,6 +232,9 @@ void BuildForm()
     win.NewRow();
     @checksText = Wrapped(win.AddText("", 13), PANEL_W);
     win.NewRow();
+    @pictureHint = Wrapped(win.AddText("saving takes its picture from the editor's view: frame it first (the middle of the view, without the panels). You can take a new one from its page later.", 12), PANEL_W);
+    Muted(pictureHint);
+    win.NewRow();
     @saveButton = win.AddButton("save to my prefabs");
     Primary(saveButton);
     win.NewRow();
@@ -252,6 +258,7 @@ void OpenForm(Library::Rec@ r)
         tagOn[i] = tags.find(Server::TAGS[i]) >= 0;
     PaintTags();
     savePublishButton.visible = r is null;
+    pictureHint.visible = r is null;
     saveButton.label = r is null ? "save to my prefabs" : (r.slug != "" && Library::Mine(r) ? "save here and on the store" : "save");
     Show(formView);
     nameInput.Focus();
@@ -335,6 +342,7 @@ void UpdateForm()
         Jobs::Say("saved “" + made.name + "” on this PC", false);
         if (publish)
             Jobs::Start(Jobs::PUBLISH, made);
+        StartPicture(made, true);
         OpenDetail(made);
     }
     else
@@ -495,10 +503,7 @@ void UpdateDetail()
         OpenForm(r);
     if (pictureButton !is null && pictureButton.Clicked() && pictureStep == 0)
     {
-        @pictureOf = r;
-        Editor::Select(array<int>());
-        pictureStep = 1;
-        pictureAt = Host::Time() + 0.15;
+        StartPicture(r, false);
         pictureButton.label = "taking the picture...";
     }
     if (publishButton !is null && publishButton.Clicked())
@@ -544,6 +549,20 @@ void UpdateDetail()
     }
 }
 
+// A picture of the editor's view for `r`: the selection let go first (its highlight and gizmo would be in it) and
+// selected again after.
+void StartPicture(Library::Rec@ r, bool quiet)
+{
+    if (pictureStep != 0)
+        return;
+    @pictureOf = r;
+    pictureQuiet = quiet;
+    pictureSelection = Editor::Selection();
+    Editor::Select(array<int>());
+    pictureStep = 1;
+    pictureAt = Host::Time() + 0.15;
+}
+
 // The picture's steps (see pictureStep): its file in the plugin's cache, a new name each time (a window keeps the
 // picture it loaded for a file's name).
 void UpdatePicture()
@@ -556,6 +575,7 @@ void UpdatePicture()
         else
         {
             pictureStep = 0;
+            Editor::Select(pictureSelection);
             Jobs::Say("couldn't take the picture: " + Screen::CaptureState(), true);
             shownChanges = -1;
         }
@@ -566,11 +586,14 @@ void UpdatePicture()
         if (state == "pending")
             return;
         pictureStep = 0;
+        if (pictureSelection.length() > 0)
+            Editor::Select(pictureSelection);
         if (state.findFirst("done: ") == 0 && Library::recs.findByRef(pictureOf) >= 0)
         {
             pictureOf.thumb = state.substr(6);
             Library::Save(pictureOf);
-            Jobs::Say("“" + Shorten(pictureOf.name, 24) + "” has its picture", false);
+            if (!pictureQuiet)
+                Jobs::Say("“" + Shorten(pictureOf.name, 24) + "” has its picture", false);
         }
         else
             Jobs::Say("couldn't take the picture: " + state, true);
