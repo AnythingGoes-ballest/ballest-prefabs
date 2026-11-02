@@ -107,7 +107,16 @@ array<Card@> CardsOf(const string &in body)
     return res;
 }
 
-string ThumbOf(const string &in path) { return path != "" ? path : Plugins::Folder() + "data\\no-picture.png"; }
+// A picture's file; without one, the "no picture yet" picture where there is room for its words, else a plain dark box.
+string ThumbOf(const string &in path, bool big = false) { return path != "" ? path : (big ? Plugins::Folder() + "data\\no-picture.png" : ""); }
+
+// A line that wraps at `width` (layout units) instead of running past its card or panel.
+UI::Text@ Wrapped(UI::Text@ t, float width)
+{
+    t.SetWidth(width);
+    t.SetWrap(true);
+    return t;
+}
 
 // --- jobs: store actions, signed in first -------------------------------------------------------------------------
 

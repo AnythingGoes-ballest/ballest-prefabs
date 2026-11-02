@@ -10,6 +10,8 @@
 //   published by you 2 ...   downloaded 3 ...
 // "more" opens a prefab's page (place, replace with the selection, edit, publish, versions, delete); "create" opens the
 // form (name, description, tags, the selection checked against the game's rules).
+// Widths are layout units: the tab's panel has about 330 for its content, a card's text beside its picture 222.
+const float PANEL_W = 330, CARD_TEXT_W = 222;
 
 namespace Tab
 {
@@ -65,7 +67,8 @@ void Build()
     @filterInput = win.AddTextInput(0, "filter my prefabs", 15);
     filterInput.clearOnSubmit = false;
     win.NewRow();
-    @statusText = win.AddText("", 13);
+    @statusText = Wrapped(win.AddText("", 13), PANEL_W);
+    statusText.visible = false;
     listView = win.StartView();
     formView = win.StartView();
     BuildForm();
@@ -115,7 +118,7 @@ string Badge(Library::Rec@ r, float &out red, float &out green, float &out blue)
         red = WARN_R; green = WARN_G; blue = WARN_B;
         return "update on the store";
     }
-    return "by " + Shorten(r.uploaderName, 20);
+    return "by " + Shorten(r.uploaderName, 18);
 }
 
 string Meta(Library::Rec@ r)
@@ -170,15 +173,15 @@ void RebuildList()
             Library::Rec@ r = rows[i];
             win.StartCard();
             win.AddImage(ThumbOf(r.thumb), 64, 40);
-            win.AddText(Shorten(r.name, 22), 16);
+            Wrapped(win.AddText(Shorten(r.name, 40), 16), CARD_TEXT_W);
             win.NewRow();
             win.AddSpace(64);
-            Muted(win.AddText(Meta(r), 12));
+            Muted(Wrapped(win.AddText(Meta(r), 12), CARD_TEXT_W));
             win.NewRow();
             win.AddSpace(64);
             float red, green, blue;
             string badge = Badge(r, red, green, blue);
-            win.AddText(badge, 12).SetColor(red, green, blue, 1);
+            Wrapped(win.AddText(badge, 12), CARD_TEXT_W).SetColor(red, green, blue, 1);
             win.NewRow();
             win.AddSpace(64);
             UI::Button@ place = win.AddButton("place");
@@ -219,7 +222,7 @@ void BuildForm()
         tagOn.insertLast(false);
     }
     win.NewRow();
-    @checksText = win.AddText("", 13);
+    @checksText = Wrapped(win.AddText("", 13), PANEL_W);
     win.NewRow();
     @saveButton = win.AddButton("save to my prefabs");
     Primary(saveButton);
@@ -361,24 +364,24 @@ void RebuildDetail()
     @backButton = win.AddButton("‹ prefabs");
     Secondary(backButton);
     win.NewRow();
-    win.AddImage(ThumbOf(r.thumb), 240, 150);
+    win.AddImage(ThumbOf(r.thumb, true), 240, 150);
     win.NewRow();
-    win.AddText(Shorten(r.name, 26), 22);
+    Wrapped(win.AddText(r.name, 22), PANEL_W);
     win.NewRow();
     float red, green, blue;
     string badge = Badge(r, red, green, blue);
-    win.AddText(badge, 13).SetColor(red, green, blue, 1);
+    Wrapped(win.AddText(badge, 13), PANEL_W).SetColor(red, green, blue, 1);
     win.NewRow();
-    Muted(win.AddText(Meta(r) + " · " + FileSize(r.bytes), 13));
+    Muted(Wrapped(win.AddText(Meta(r) + " · " + FileSize(r.bytes), 13), PANEL_W));
     if (r.tags != "")
     {
         win.NewRow();
-        Muted(win.AddText(Replace(r.tags, ",", ", "), 13));
+        Muted(Wrapped(win.AddText(Replace(r.tags, ",", ", "), 13), PANEL_W));
     }
     if (r.description != "")
     {
         win.NewRow();
-        win.AddText(Shorten(r.description, 60), 13);
+        Wrapped(win.AddText(Shorten(r.description, 300), 13), PANEL_W);
     }
     win.NewRow();
     @placeButton = win.AddButton("place it");
@@ -452,7 +455,7 @@ void UpdateDetail()
     int count;
     string problem = SelectionProblem(count);
     if (replaceButton !is null)
-        replaceButton.label = confirmReplace ? "click again: replace (the old one is kept)" : "replace with the selection (" + count + ")";
+        replaceButton.label = confirmReplace ? "click again to replace (old one kept)" : "replace with the selection (" + count + ")";
     if (backButton.Clicked())
     {
         Show(listView);
@@ -545,6 +548,7 @@ void Update()
         }
     }
     statusText.text = Jobs::message;
+    statusText.visible = Jobs::message != "";
     if (Jobs::messageBad)
         statusText.SetColor(BAD_R, BAD_G, BAD_B, 1);
     else

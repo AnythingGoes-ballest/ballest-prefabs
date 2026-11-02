@@ -82,7 +82,8 @@ void Build()
     @totalText = win.AddText("", 14);
     Muted(totalText);
     win.NewRow();
-    @statusText = win.AddText("", 14);
+    @statusText = Wrapped(win.AddText("", 14), 1300);
+    statusText.visible = false;
     browseView = win.StartView();
     mineView = win.StartView();
     win.SetScrolling(browseView, true);
@@ -245,8 +246,9 @@ void RebuildBrowse()
     {
         Card@ c = cards[i];
         win.StartCard();
-        cardImages.insertLast(win.AddImage(ThumbOf(c.thumb), 160, 100));
-        win.AddText(c.name, 20);
+        cardImages.insertLast(win.AddImage(ThumbOf(c.thumb, true), 128, 80));
+        win.AddText(Shorten(c.name, 64), 20);
+        Muted(win.AddText("by " + Shorten(c.uploaderName, 32) + " · " + DateText(c.createdAt), 14));
         win.AddSpace(0);
         UI::Button@ heart = win.AddButton("♥ " + c.favorites);
         if (c.hearted)
@@ -262,18 +264,15 @@ void RebuildBrowse()
         else
             Secondary(act);
         win.NewRow();
-        win.AddSpace(160);
-        Muted(win.AddText("by " + c.uploaderName + " · " + DateText(c.createdAt), 14));
-        win.NewRow();
-        win.AddSpace(160);
+        win.AddSpace(128);
         string size = SizeText(c.size);
         win.AddText(c.pieces + " pieces" + (size == "" ? "" : " · " + size) + " · " + FileSize(c.bytes)
                     + (c.tags == "" ? "" : " · " + Replace(c.tags, ",", ", ")), 14);
         if (c.description != "")
         {
             win.NewRow();
-            win.AddSpace(160);
-            Muted(win.AddText(Shorten(c.description, 110), 14));
+            win.AddSpace(128);
+            Muted(Wrapped(win.AddText(Shorten(c.description, 300), 14), 1150));
         }
         win.EndCard();
         heartButtons.insertLast(heart);
@@ -503,6 +502,7 @@ void Update()
         return;
     }
     statusText.text = Jobs::message;
+    statusText.visible = Jobs::message != "";
     if (Jobs::messageBad)
         statusText.SetColor(BAD_R, BAD_G, BAD_B, 1);
     else
