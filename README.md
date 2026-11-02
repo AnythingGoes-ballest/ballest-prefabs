@@ -50,7 +50,8 @@ session here), and takes new versions of a file, so every flow can be tried. Not
 - `main.as`: settings, the store's cards, store actions (signed in first, signed in again once on a 401)
 - `server.as`: the store's calls, to the site or the practice copy; `fakestore.as`: the practice copy
 - `library.as`: the prefabs on this PC (the game's Prefabs folder) and what is known of them
-- `thumbs.as`: the site's pictures, saved to files, and the hearts given from this PC
+- `thumbs.as`: the site's pictures, saved to files, and the hearts given from this PC; own prefabs get a picture of the
+  editor's view from their page (Screen::Capture)
 - `place.as`: placing a prefab; `tab.as`: the editor tab; `store.as`: the store window; `util.as`: text helpers
 - `data/store`, `data/store.txt`: the practice store's prefabs and their details
 

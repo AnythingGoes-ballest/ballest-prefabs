@@ -1,19 +1,21 @@
 // The site's pictures of its prefabs (its /api/prefabs/<slug>/thumb?v=<last edit> route), saved to this plugin's cache
 // folder by the host (Net::SaveBody) so a window can show them, and remembered by slug and edit so a picture is fetched
-// once per edit. They are fetched one at a time, at most 24 a minute (the host lets a plugin start 30 requests a minute:
-// the rest are left for the list and store actions), in the order they were asked for: the top of the list first.
+// once per edit. They are fetched two at a time, at most 100 a minute (the host lets a plugin start 120 a minute: the
+// rest are left for the list and store actions), in the order they were asked for: the top of the list first. One the
+// host refuses (too many at once) waits a moment and is asked again.
 // Also here: the hearts this player gave, which the site's list doesn't say (it's the same for everyone, cached a minute).
 
 namespace Thumbs
 {
 
-const int PER_MINUTE = 24;
+const int PER_MINUTE = 100, AT_ONCE = 2;
 
 array<string> queue;            // hrefs waiting
 array<string> queueSlug;
-string fetchingHref, fetchingSlug;
-int net = 0;
+array<string> fetchingHref, fetchingSlug;
+array<int> nets;
 array<double> starts;
+double pausedUntil = 0;
 int changes = 0;                // goes up whenever a picture arrives
 
 // The picture of `slug` as of `href` (the list's "thumb"), a file; "" while it is fetched (or can't be).
@@ -26,7 +28,7 @@ string Path(const string &in slug, const string &in href)
         return kept[1];
     if (kept.length() == 3 && kept[0] == href && kept[2] == "none")
         return "";
-    if (href != fetchingHref && queue.find(href) < 0)
+    if (fetchingHref.find(href) < 0 && queue.find(href) < 0)
     {
         queue.insertLast(href);
         queueSlug.insertLast(slug);
@@ -60,39 +62,46 @@ string EditOf(const string &in href)
 
 void Update()
 {
-    if (net != 0)
+    for (int i = int(nets.length()) - 1; i >= 0; i--)
     {
-        if (!Net::Done(net))
-            return;
-        int status = Net::Status(net);
-        string path = status == 200 ? Net::SaveBody(net, fetchingSlug + "-" + EditOf(fetchingHref) + ".png") : "";
-        Net::Forget(net);
-        net = 0;
+        if (!Net::Done(nets[i]))
+            continue;
+        string href = fetchingHref[i], slug = fetchingSlug[i];
+        int status = Net::Status(nets[i]);
+        string path = status == 200 ? Net::SaveBody(nets[i], slug + "-" + EditOf(href) + ".png") : "";
+        Net::Forget(nets[i]);
+        nets.removeAt(uint(i));
+        fetchingHref.removeAt(uint(i));
+        fetchingSlug.removeAt(uint(i));
         if (path != "")
-            Storage::Set("thumb." + fetchingSlug, fetchingHref + "|" + path);
+            Storage::Set("thumb." + slug, href + "|" + path);
         else if (status == 404)
-            Storage::Set("thumb." + fetchingSlug, fetchingHref + "||none");     // the site can't draw it: not asked again
+            Storage::Set("thumb." + slug, href + "||none");     // the site can't draw it: not asked again
         // anything else (offline, a refusal) is asked again the next time the picture is wanted
         if (path != "")
-            Library::NoteThumb(fetchingSlug, path);
-        fetchingHref = fetchingSlug = "";
+            Library::NoteThumb(slug, path);
         changes++;
     }
-    if (queue.length() == 0)
-        return;
     double now = Host::Time();
-    while (starts.length() > 0 && now - starts[0] > 61)
-        starts.removeAt(0);
-    if (int(starts.length()) >= PER_MINUTE)
-        return;
-    fetchingHref = queue[0];
-    fetchingSlug = queueSlug[0];
-    queue.removeAt(0);
-    queueSlug.removeAt(0);
-    net = Net::Get(Server::SITE + fetchingHref);
-    starts.insertLast(now);
-    if (net == 0)
-        fetchingHref = fetchingSlug = "";
+    while (queue.length() > 0 && int(nets.length()) < AT_ONCE && now >= pausedUntil)
+    {
+        while (starts.length() > 0 && now - starts[0] > 61)
+            starts.removeAt(0);
+        if (int(starts.length()) >= PER_MINUTE)
+            return;
+        int id = Net::Get(Server::SITE + queue[0]);
+        if (id == 0)
+        {
+            pausedUntil = now + 2;                              // the host's limits: the same one again shortly
+            return;
+        }
+        starts.insertLast(now);
+        nets.insertLast(id);
+        fetchingHref.insertLast(queue[0]);
+        fetchingSlug.insertLast(queueSlug[0]);
+        queue.removeAt(0);
+        queueSlug.removeAt(0);
+    }
 }
 
 // Pictures nobody waits for any more (the list changed): dropped from the queue.

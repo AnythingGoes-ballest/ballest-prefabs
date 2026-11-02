@@ -41,7 +41,12 @@ Library::Rec@ editing;          // null while making a new one
 
 // a prefab's page
 Library::Rec@ shown;
-UI::Button@ backButton, placeButton, replaceButton, editButton, publishButton, unpublishButton, deleteButton, storeButton2;
+UI::Button@ backButton, placeButton, replaceButton, editButton, publishButton, unpublishButton, deleteButton, storeButton2, pictureButton;
+// a picture from the editor's view: the selection let go first (its highlight and gizmo would be in it), a frame
+// later the capture, then waiting for it
+int pictureStep = 0;
+double pictureAt = 0;
+Library::Rec@ pictureOf;
 array<UI::Button@> putBackButtons;
 bool confirmReplace = false, confirmDelete = false, confirmUnpublish = false;
 int view = 0;
@@ -400,6 +405,15 @@ void RebuildDetail()
         @editButton = win.AddButton("edit name, description and tags");
         Secondary(editButton);
     }
+    @pictureButton = null;
+    if (mine)
+    {
+        win.NewRow();
+        @pictureButton = win.AddButton(pictureStep != 0 ? "taking the picture..." : (r.thumb == "" ? "use this view as its picture" : "new picture from this view"));
+        Secondary(pictureButton);
+        win.NewRow();
+        Muted(Wrapped(win.AddText("frame it in the editor's view first: the picture is the middle of the view, without the panels", 12), PANEL_W));
+    }
     @publishButton = null;
     @unpublishButton = null;
     @storeButton2 = null;
@@ -479,6 +493,14 @@ void UpdateDetail()
     }
     if (editButton !is null && editButton.Clicked())
         OpenForm(r);
+    if (pictureButton !is null && pictureButton.Clicked() && pictureStep == 0)
+    {
+        @pictureOf = r;
+        Editor::Select(array<int>());
+        pictureStep = 1;
+        pictureAt = Host::Time() + 0.15;
+        pictureButton.label = "taking the picture...";
+    }
     if (publishButton !is null && publishButton.Clicked())
     {
         Jobs::Start(r.slug == "" ? Jobs::PUBLISH : Jobs::UPDATE, r);
@@ -522,6 +544,51 @@ void UpdateDetail()
     }
 }
 
+// The picture's steps (see pictureStep): its file in the plugin's cache, a new name each time (a window keeps the
+// picture it loaded for a file's name).
+void UpdatePicture()
+{
+    if (pictureStep == 1 && Host::Time() >= pictureAt)
+    {
+        string name = "own-" + SafeName(pictureOf.file) + "-" + int(Host::Time() * 1000);
+        if (Screen::Capture(name))
+            pictureStep = 2;
+        else
+        {
+            pictureStep = 0;
+            Jobs::Say("couldn't take the picture: " + Screen::CaptureState(), true);
+            shownChanges = -1;
+        }
+    }
+    else if (pictureStep == 2)
+    {
+        string state = Screen::CaptureState();
+        if (state == "pending")
+            return;
+        pictureStep = 0;
+        if (state.findFirst("done: ") == 0 && Library::recs.findByRef(pictureOf) >= 0)
+        {
+            pictureOf.thumb = state.substr(6);
+            Library::Save(pictureOf);
+            Jobs::Say("“" + Shorten(pictureOf.name, 24) + "” has its picture", false);
+        }
+        else
+            Jobs::Say("couldn't take the picture: " + state, true);
+        Jobs::changes++;
+    }
+}
+
+string SafeName(const string &in text)
+{
+    string res;
+    for (uint i = 0; i < text.length() && res.length() < 40; i++)
+    {
+        uint8 c = text[i];
+        res += (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 45 ? text.substr(i, 1) : "_";
+    }
+    return res == "" ? "prefab" : res;
+}
+
 void PlaceRec(Library::Rec@ r)
 {
     int count;
@@ -547,6 +614,7 @@ void Update()
             shownChanges = -1;
         }
     }
+    UpdatePicture();
     statusText.text = Jobs::message;
     statusText.visible = Jobs::message != "";
     if (Jobs::messageBad)
