@@ -262,6 +262,16 @@ Req@ Delete(const string &in slug)
     return Answer(200, "{\"deleted\":" + Json::Quote(slug) + "}");
 }
 
+// GET /api/prefabs/<slug>/favorite: its hearts now, and whether the signed-in player gave one ({ on, favorites }).
+Req@ Hearts(const string &in slug)
+{
+    if (!Fake())
+        return Get("/api/prefabs/" + slug + "/favorite");
+    if (!FakeStore::Live(slug))
+        return Answer(404, "{\"error\":\"no such prefab\"}", 0.1);
+    return Answer(200, "{\"on\":" + (FakeStore::Hearted(slug, signedInAs) ? "true" : "false") + ",\"favorites\":" + FakeStore::Hearts(slug) + "}", 0.1);
+}
+
 // PUT or DELETE /api/prefabs/<slug>/favorite: the player's heart, on or off.
 Req@ Favorite(const string &in slug, bool on)
 {

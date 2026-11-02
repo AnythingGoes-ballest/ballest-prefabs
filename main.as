@@ -275,6 +275,15 @@ void Done(Job@ j)
             if (!Server::Fake())
                 Thumbs::SetHeart(j.card.slug, j.card.hearted);
             j.card.favorites = int(Json::Number(j.req.body, "favorites"));
+            {
+                // the copy on this PC (published by you, or downloaded) shows the new count at once
+                Library::Rec@ here = Library::BySlug(j.card.slug);
+                if (here !is null && here.favorites != j.card.favorites)
+                {
+                    here.favorites = j.card.favorites;
+                    Library::Save(here);
+                }
+            }
             { Finish(j, "", false); return; }
         case DOWNLOAD:
         {

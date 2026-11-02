@@ -45,6 +45,8 @@ UI::Button@ backButton, placeButton, replaceButton, editButton, publishButton, u
 // a picture from the editor's view: the selection let go first (its highlight and gizmo would be in it), a frame
 // later the capture, then waiting for it
 int pictureStep = 0;
+Req@ heartsReq;                 // a prefab's page asks the store for its hearts
+Library::Rec@ heartsFor;
 double pictureAt = 0;
 Library::Rec@ pictureOf;
 array<int> pictureSelection;    // selected again once the picture is taken
@@ -118,7 +120,7 @@ string Badge(Library::Rec@ r, float &out red, float &out green, float &out blue)
             return "changed here · publish update";
         }
         red = LIME_R; green = LIME_G; blue = LIME_B;
-        return "live · ♥ " + r.favorites;
+        return "♥ " + r.favorites;
     }
     if (r.storeUpdated != "")
     {
@@ -361,6 +363,9 @@ void OpenDetail(Library::Rec@ r)
 {
     @shown = r;
     confirmReplace = confirmDelete = confirmUnpublish = false;
+    // its hearts as the store has them now (the store's list is kept a minute; this asks the prefab itself)
+    @heartsReq = r.slug != "" ? Server::Hearts(r.slug) : null;
+    @heartsFor = r;
     RebuildDetail();
     Show(detailView);
 }
@@ -648,6 +653,22 @@ void Update()
         }
     }
     UpdatePicture();
+    if (heartsReq !is null && heartsReq.done)
+    {
+        if (heartsReq.status == 200 && Library::recs.findByRef(heartsFor) >= 0)
+        {
+            int hearts = int(Json::Number(heartsReq.body, "favorites", heartsFor.favorites));
+            if (Server::token != "" && !Server::Fake())
+                Thumbs::SetHeart(heartsFor.slug, Json::Bool(heartsReq.body, "on"));
+            if (hearts != heartsFor.favorites)
+            {
+                heartsFor.favorites = hearts;
+                Library::Save(heartsFor);
+                Jobs::changes++;
+            }
+        }
+        @heartsReq = null;
+    }
     statusText.text = Jobs::message;
     statusText.visible = Jobs::message != "" && (view != listView || Jobs::messageBad);
     if (Jobs::messageBad)
