@@ -17,7 +17,8 @@ A fifth tab in the editor's left panel, after pieces, details, world settings an
   other).
 - **more** opens a prefab's page: place it, **replace with the selection** (the old file is kept as a version you can
   put back), edit its name, description and tags, publish it or publish a new version, delete it from this PC or
-  from the store.
+  from the store. A prefab downloaded from someone else is only placed, updated from the store or deleted from this PC:
+  replacing and editing are for your own.
 
 ## The prefab store
 
@@ -33,20 +34,23 @@ ticket made out to this plugin, and the store checks it with Steam. Only a prefa
 
 ## The practice store
 
-The store is [ballestrecords.com](https://ballestrecords.com/prefabs). Until its routes for the game are live, the
-setting **Use ballestrecords.com** is off and the store is a practice copy kept on this PC: thirteen prefabs made by
-the site's own Generators (their pictures drawn by the site's renderer), plus whatever you publish to it. It answers
-exactly as the site's routes do and keeps their rules (only the uploader changes a prefab; 5 uploads and 60 hearts
-and edits an hour, counted per session here), so every flow can be tried. Nothing in it leaves this PC.
+The store is [ballestrecords.com](https://ballestrecords.com/prefabs) (the setting **Use ballestrecords.com**, on by
+default). The site keeps a prefab's file as it was uploaded, so a published prefab changed here is published as a new
+one there; its name, description and tags can be edited. Pictures come from the site's thumbnail route, saved in the
+plugin's cache (`PluginManager\cache\prefabs`) once per edit. The site's list is the same for everyone, so the hearts
+shown as yours are the ones given from this PC.
 
-With the setting on, browsing and downloading use the site; publishing, editing, hearting and deleting say they aren't
-on the site yet, and pictures show as "no picture yet" until the host can save a download to a file.
+With the setting off, the store is a practice copy kept on this PC: thirteen prefabs made by the site's own Generators
+(their pictures drawn by the site's renderer), plus whatever you publish to it. It answers exactly as the site's routes
+do and keeps their rules (only the uploader changes a prefab; 5 uploads and 60 hearts and edits an hour, counted per
+session here), and takes new versions of a file, so every flow can be tried. Nothing in it leaves this PC.
 
 ## Files
 
 - `main.as`: settings, the store's cards, store actions (signed in first, signed in again once on a 401)
 - `server.as`: the store's calls, to the site or the practice copy; `fakestore.as`: the practice copy
 - `library.as`: the prefabs on this PC (the game's Prefabs folder) and what is known of them
+- `thumbs.as`: the site's pictures, saved to files, and the hearts given from this PC
 - `place.as`: placing a prefab; `tab.as`: the editor tab; `store.as`: the store window; `util.as`: text helpers
 - `data/store`, `data/store.txt`: the practice store's prefabs and their details
 

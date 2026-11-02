@@ -383,23 +383,30 @@ void RebuildDetail()
     win.NewRow();
     @placeButton = win.AddButton("place it");
     Primary(placeButton);
-    win.NewRow();
-    @replaceButton = win.AddButton("replace with the selection");
-    Secondary(replaceButton);
-    win.NewRow();
-    @editButton = win.AddButton("edit name, description and tags");
-    Secondary(editButton);
+    // someone else's prefab is only placed, deleted from this PC or updated from the store: its name, details and
+    // pieces are theirs
+    bool mine = Library::Mine(r) || r.source == Library::LOCAL;
+    @replaceButton = null;
+    @editButton = null;
+    if (mine)
+    {
+        win.NewRow();
+        @replaceButton = win.AddButton("replace with the selection");
+        Secondary(replaceButton);
+        win.NewRow();
+        @editButton = win.AddButton("edit name, description and tags");
+        Secondary(editButton);
+    }
     @publishButton = null;
     @unpublishButton = null;
     @storeButton2 = null;
-    bool mine = Library::Mine(r) || r.source == Library::LOCAL;
     if (r.slug == "" && mine)
     {
         win.NewRow();
         @publishButton = win.AddButton("publish to the store");
         Blue(publishButton);
     }
-    else if (r.slug != "" && Library::Mine(r) && Library::ChangedHere(r))
+    else if (r.slug != "" && Library::CanPublishVersion(r))
     {
         win.NewRow();
         @publishButton = win.AddButton("publish this version");
@@ -444,7 +451,8 @@ void UpdateDetail()
     }
     int count;
     string problem = SelectionProblem(count);
-    replaceButton.label = confirmReplace ? "click again: replace (the old one is kept)" : "replace with the selection (" + count + ")";
+    if (replaceButton !is null)
+        replaceButton.label = confirmReplace ? "click again: replace (the old one is kept)" : "replace with the selection (" + count + ")";
     if (backButton.Clicked())
     {
         Show(listView);
@@ -452,7 +460,7 @@ void UpdateDetail()
     }
     if (placeButton.Clicked())
         PlaceRec(r);
-    if (replaceButton.Clicked())
+    if (replaceButton !is null && replaceButton.Clicked())
     {
         if (problem != "")
             Jobs::Say(problem, true);
@@ -466,7 +474,7 @@ void UpdateDetail()
             RebuildDetail();
         }
     }
-    if (editButton.Clicked())
+    if (editButton !is null && editButton.Clicked())
         OpenForm(r);
     if (publishButton !is null && publishButton.Clicked())
     {

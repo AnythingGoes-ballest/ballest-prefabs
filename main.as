@@ -3,12 +3,12 @@
 //     placed with one click as the game's own spawn places it (one group, selected), moved as Create Extensions places
 //     new pieces; a new one made from the selection; one replaced with the selection, its old file kept as a version.
 //   - the prefab store (its button in the tab, and "prefabs" in the footer): browse, search and download everyone's;
-//     publish, update and delete your own. It talks to ballestrecords.com, or to a practice copy of the store kept in
-//     this plugin until the site's routes for the game are live (the "Use ballestrecords.com" setting).
+//     publish and delete your own. It talks to ballestrecords.com, or to a practice copy of the store kept in this
+//     plugin (the "Use ballestrecords.com" setting off).
 // Every store action that changes something signs in first: a Steam ticket the site checks, answered with a token.
 
-[Setting name="Use ballestrecords.com" description="Off: the store is a practice copy kept on this PC (until the site's routes for the game are live). On: the real store."]
-bool UseSite = false;
+[Setting name="Use ballestrecords.com" description="On: the real store. Off: a practice copy kept on this PC, where nothing you do leaves this PC."]
+bool UseSite = true;
 
 // Colours (the game's widget colours are linear: each is the linear value of the colour in its comment)
 const float WINDOW_R = 0.0052f, WINDOW_G = 0.0060f, WINDOW_B = 0.0086f;     // #101217
@@ -42,6 +42,8 @@ void Update(float dt)
 {
     Server::Update();
     Jobs::Update();
+    if (!Server::Fake())
+        Thumbs::Update();
     if (footerButton.Clicked())
         Store::Toggle();
     Tab::Update();
@@ -59,7 +61,7 @@ void OnSettingsChanged()
 // One prefab as the store lists it (the site's /api/prefab-list entry).
 class Card
 {
-    string slug, name, description, tags, uploaderId, uploaderName, createdAt, updatedAt, size, thumb;
+    string slug, name, description, tags, uploaderId, uploaderName, createdAt, updatedAt, size, thumb, thumbHref;
     int pieces = 0, bytes = 0, favorites = 0;
     bool hearted = false;
 }
@@ -86,14 +88,20 @@ array<Card@> CardsOf(const string &in body)
         c.pieces = int(Json::Number(body, at + "pieces"));
         c.bytes = int(Json::Number(body, at + "bytes"));
         c.favorites = int(Json::Number(body, at + "favorites"));
-        c.hearted = Json::Bool(body, at + "hearted");
+        // the practice store says; the site's list is the same for everyone, so this PC remembers the hearts it gave
+        c.hearted = Server::Fake() ? Json::Bool(body, at + "hearted") : Thumbs::Hearted(c.slug);
         if (Json::Has(body, at + "size.w"))
             c.size = OneDecimal(Json::Number(body, at + "size.w")) + "," + OneDecimal(Json::Number(body, at + "size.d")) + ","
                     + OneDecimal(Json::Number(body, at + "size.h"));
-        // the practice store's pictures are files; the site's are its thumbnail route, which needs the host to save
-        // a download to a file first (not yet): those show as no picture
+        // the practice store's pictures are files; the site's are its thumbnail route, saved to a file (Thumbs)
         string thumb = Json::String(body, at + "thumb");
-        c.thumb = thumb.length() > 2 && thumb.substr(1, 1) == ":" ? thumb : "";
+        if (Server::Fake())
+            c.thumb = thumb.length() > 2 && thumb.substr(1, 1) == ":" ? thumb : "";
+        else
+        {
+            c.thumbHref = thumb;
+            c.thumb = Thumbs::Path(c.slug, thumb);
+        }
         res.insertLast(c);
     }
     return res;
@@ -255,6 +263,8 @@ void Done(Job@ j)
             { Finish(j, "“" + r.name + "” is off the store; it's still on this PC", false); return; }
         case HEART:
             j.card.hearted = Json::Bool(j.req.body, "on");
+            if (!Server::Fake())
+                Thumbs::SetHeart(j.card.slug, j.card.hearted);
             j.card.favorites = int(Json::Number(j.req.body, "favorites"));
             { Finish(j, "", false); return; }
         case DOWNLOAD:

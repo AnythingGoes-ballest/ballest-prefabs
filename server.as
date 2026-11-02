@@ -1,8 +1,8 @@
 // The prefab store's server, behind one set of calls, so the tab and the store never care which one answers: the site
-// (ballestrecords.com: its prefab list, file, thumbnail and sign-in routes for the game) or, until those are live, a fake
-// that answers exactly as the site's routes do (the same status codes and JSON) from data/store and this plugin's
-// storage. Every call returns a Req at once; Server::Update() finishes them, a fake one after a short delay as a real
-// one would take.
+// (ballestrecords.com: its prefab list, file, thumbnail, sign-in and write routes for the game) or a practice copy that
+// answers exactly as the site's routes do (the same status codes and JSON) from data/store and this plugin's storage.
+// Every call returns a Req at once; Server::Update() finishes them, a fake one after a short delay as a real one would
+// take.
 
 class Req
 {
@@ -10,8 +10,9 @@ class Req
     int status = 0;             // the HTTP status; 0 when no answer came
     string body;                // the answer: JSON, or a prefab file's text
     string error;               // why it failed, in words for the player ("" when it didn't)
-    double at = 0;              // fake: when it answers
+    double at = 0;              // fake: when it answers; site: when waiting for Steam's ticket gives up
     int net = 0;                // site: the Net request
+    bool ticket = false;        // site: waiting for Steam's ticket before signing in
 }
 
 namespace Server
@@ -40,14 +41,22 @@ Req@ Answer(int status, const string &in body, double delay = 0.25)
     return r;
 }
 
-// A call the site can't take yet (its route isn't live, or the host can't send it): failed at once, saying so.
+// A call the site doesn't take: failed at once, saying so.
 Req@ NotYet(const string &in what)
 {
     Req r;
     r.done = true;
     r.status = 501;
-    r.error = what + " isn't on ballestrecords.com yet: switch the store to its practice copy in this plugin's settings";
+    r.error = what + " isn't on ballestrecords.com: it keeps a prefab's file as it was uploaded (publish it as a new prefab)";
     return r;
+}
+
+// Steam's ticket state ("error: ...") as words for the player.
+string TicketWhy(const string &in state) { return state.findFirst("error: ") == 0 ? state.substr(7) : "Steam: " + state; }
+
+string Part(const string &in boundary, const string &in field, const string &in value)
+{
+    return "--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + field + "\"\r\n\r\n" + value + "\r\n";
 }
 
 void Update()
@@ -55,6 +64,28 @@ void Update()
     for (int i = int(pending.length()) - 1; i >= 0; i--)
     {
         Req@ r = pending[i];
+        if (r.ticket)
+        {
+            string state = Steam::WebTicketState();
+            if (state == "pending" && Host::Time() < r.at)
+                continue;
+            r.ticket = false;
+            if (state != "ready")
+            {
+                r.error = state == "pending" ? "Steam didn't give a ticket in time" : TicketWhy(state);
+                r.done = true;
+                pending.removeAt(uint(i));
+                continue;
+            }
+            r.net = Net::Post(SITE + "/api/auth/steam/ticket", "{\"ticket\":" + Json::Quote(Steam::WebTicket()) + "}");
+            if (r.net == 0)
+            {
+                r.error = Net::Refusal();
+                r.done = true;
+                pending.removeAt(uint(i));
+            }
+            continue;
+        }
         if (r.net != 0)
         {
             if (!Net::Done(r.net))
@@ -74,10 +105,13 @@ void Update()
     }
 }
 
-Req@ Get(const string &in path)
+Req@ Get(const string &in path) { return Send("GET", path); }
+
+// A request to the site, with the session when there is one. `type` "" sends a body as JSON.
+Req@ Send(const string &in method, const string &in path, const string &in body = "", const string &in type = "")
 {
     Req r;
-    r.net = Net::Get(SITE + path, token);
+    r.net = Net::Send(method, SITE + path, body, type, token, 20000);
     if (r.net == 0)
     {
         r.done = true;
@@ -118,7 +152,20 @@ Req@ File(const string &in slug)
 Req@ SignIn()
 {
     if (!Fake())
-        return NotYet("signing in from the game");          // needs the ticket's state polled first: Session below
+    {
+        // Steam makes a ticket out to this plugin ("ballest-plugin:prefabs"); the site asks Steam whose it is
+        Req r;
+        if (!Steam::RequestWebTicket())
+        {
+            r.done = true;
+            r.error = TicketWhy(Steam::WebTicketState());
+            return r;
+        }
+        r.ticket = true;
+        r.at = Host::Time() + 15;
+        pending.insertLast(r);
+        return r;
+    }
     string me = Steam::OwnId();
     if (me == "")
         return Answer(502, "{\"error\":\"Steam didn't answer\"}");
@@ -141,7 +188,16 @@ Req@ Quota()
 Req@ Upload(const string &in name, const string &in description, const array<string>@ tags, const string &in file)
 {
     if (!Fake())
-        return NotYet("uploading from the game");
+    {
+        // the site's upload form: its fields, each tag a field of its own, and the file as a file
+        string boundary = "ballestprefab" + Steam::OwnId() + "x" + int(Host::Time() * 1000);
+        string form = Part(boundary, "name", name) + Part(boundary, "description", description);
+        for (uint i = 0; i < tags.length(); i++)
+            form += Part(boundary, "tags", tags[i]);
+        form += "--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"prefab.json\"\r\n"
+              + "Content-Type: application/json\r\n\r\n" + file + "\r\n--" + boundary + "--\r\n";
+        return Send("POST", "/api/prefabs", form, "multipart/form-data; boundary=" + boundary);
+    }
     if (token == "")
         return Answer(401, "{\"error\":\"sign in with Steam to upload\"}");
     string problem = FieldsProblem(name, description, tags);
@@ -158,7 +214,13 @@ Req@ Upload(const string &in name, const string &in description, const array<str
 Req@ Edit(const string &in slug, const string &in name, const string &in description, const array<string>@ tags)
 {
     if (!Fake())
-        return NotYet("editing from the game");
+    {
+        array<string> quoted;
+        for (uint i = 0; i < tags.length(); i++)
+            quoted.insertLast(Json::Quote(tags[i]));
+        return Send("PATCH", "/api/prefabs/" + slug, "{\"name\":" + Json::Quote(name) + ",\"description\":" + Json::Quote(description)
+                                                       + ",\"tags\":[" + Join(quoted, ",") + "]}");
+    }
     int refused = FakeStore::MayChange(slug, signedInAs, token != "");
     if (refused != 0)
         return Answer(refused, FakeStore::RefusalJson(refused));
@@ -172,12 +234,12 @@ Req@ Edit(const string &in slug, const string &in name, const string &in descrip
     return Answer(200, "{\"slug\":" + Json::Quote(slug) + "}");
 }
 
-// PUT /api/prefabs/<slug>/file: its uploader publishes a new version of the file. Not on the site yet (its files
-// can't change after upload); the fake has it, so the version flow can be tried.
+// PUT /api/prefabs/<slug>/file: its uploader publishes a new version of the file. Not on the site (a prefab's file
+// stays as it was uploaded there); the practice copy has it.
 Req@ UpdateFile(const string &in slug, const string &in file)
 {
     if (!Fake())
-        return NotYet("publishing a new version");
+        return NotYet("a new version of a published prefab");
     int refused = FakeStore::MayChange(slug, signedInAs, token != "");
     if (refused != 0)
         return Answer(refused, FakeStore::RefusalJson(refused));
@@ -192,7 +254,7 @@ Req@ UpdateFile(const string &in slug, const string &in file)
 Req@ Delete(const string &in slug)
 {
     if (!Fake())
-        return NotYet("deleting from the game");
+        return Send("DELETE", "/api/prefabs/" + slug);
     int refused = FakeStore::MayChange(slug, signedInAs, token != "");
     if (refused != 0)
         return Answer(refused, FakeStore::RefusalJson(refused));
@@ -204,7 +266,7 @@ Req@ Delete(const string &in slug)
 Req@ Favorite(const string &in slug, bool on)
 {
     if (!Fake())
-        return NotYet("hearting from the game");
+        return Send(on ? "PUT" : "DELETE", "/api/prefabs/" + slug + "/favorite");
     if (token == "")
         return Answer(401, "{\"error\":\"sign in with Steam to favorite\"}");
     if (!FakeStore::Live(slug))

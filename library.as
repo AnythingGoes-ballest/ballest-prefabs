@@ -124,6 +124,17 @@ Rec@ BySlug(const string &in slug)
     return null;
 }
 
+// The store's picture of `slug` arrived: the prefab here with that slug shows it too.
+void NoteThumb(const string &in slug, const string &in path)
+{
+    Rec@ r = BySlug(slug);
+    if (r is null || r.thumb == path)
+        return;
+    r.thumb = path;
+    Save(r);
+    Jobs::changes++;
+}
+
 // pieces, size and bytes from its file
 void Measure(Rec@ r)
 {
@@ -143,6 +154,10 @@ bool ChangedHere(Rec@ r)
 {
     return r.slug != "" && Mine(r) && r.publishedHash != "" && Hash(Prefabs::Read(r.file)) != r.publishedHash;
 }
+
+// Whether a new version of it can go to the store: changed here, and the store takes new files (the practice copy does;
+// ballestrecords.com keeps a prefab's file as it was uploaded).
+bool CanPublishVersion(Rec@ r) { return ChangedHere(r) && Server::Fake(); }
 
 // A file name for `name` that no prefab here has yet.
 string FreeFile(const string &in name)

@@ -31,6 +31,8 @@ bool appending = false, dirty = true;
 string askedFor;
 double searchAt = 0;
 array<UI::Button@> heartButtons, actionButtons;
+array<UI::Image@> cardImages;
+int shownThumbs = 0;
 UI::Button@ moreButton;
 
 // my prefabs
@@ -191,6 +193,8 @@ void Ask(bool more)
     appending = more;
     askedFor = search.typed;
     askedSeq = ++seq;
+    if (!more)
+        Thumbs::Clear();
     @listReq = Server::List(sort, tag, askedFor, more ? next : 0, PAGE);
     dirty = false;
 }
@@ -229,6 +233,7 @@ void RebuildBrowse()
     win.ClearView(browseView);
     heartButtons.resize(0);
     actionButtons.resize(0);
+    cardImages.resize(0);
     @moreButton = null;
     totalText.text = total + (total == 1 ? " prefab" : " prefabs");
     if (cards.length() == 0)
@@ -240,7 +245,7 @@ void RebuildBrowse()
     {
         Card@ c = cards[i];
         win.StartCard();
-        win.AddImage(ThumbOf(c.thumb), 160, 100);
+        cardImages.insertLast(win.AddImage(ThumbOf(c.thumb), 160, 100));
         win.AddText(c.name, 20);
         win.AddSpace(0);
         UI::Button@ heart = win.AddButton("♥ " + c.favorites);
@@ -322,6 +327,18 @@ void UpdateBrowse()
         shownChanges = Jobs::changes;
         RebuildBrowse();
     }
+    if (Thumbs::changes != shownThumbs)
+    {
+        // pictures that arrived: into their cards as they are
+        shownThumbs = Thumbs::changes;
+        for (uint i = 0; i < cards.length() && i < cardImages.length(); i++)
+            if (cards[i].thumb == "" && cards[i].thumbHref != "")
+            {
+                cards[i].thumb = Thumbs::Path(cards[i].slug, cards[i].thumbHref);
+                if (cards[i].thumb != "")
+                    cardImages[i].path = cards[i].thumb;
+            }
+    }
     if (popularButton.Clicked() && sort != "popular")
     {
         sort = "popular";
@@ -400,7 +417,7 @@ void RebuildMine()
             string badge = Tab::Badge(r, red, green, blue);
             win.AddText(badge, 14).SetColor(red, green, blue, 1);
             win.AddSpace(0);
-            string main = s == 1 ? "publish" : (Library::ChangedHere(r) ? "publish update" : "see it in the store");
+            string main = s == 1 ? "publish" : (Library::CanPublishVersion(r) ? "publish update" : "see it in the store");
             UI::Button@ m = win.AddButton(main);
             if (main == "publish")
                 Primary(m);
@@ -452,7 +469,7 @@ void UpdateMine()
         {
             if (r.slug == "")
                 Jobs::Start(Jobs::PUBLISH, r);
-            else if (Library::ChangedHere(r))
+            else if (Library::CanPublishVersion(r))
                 Jobs::Start(Jobs::UPDATE, r);
             else
             {

@@ -47,13 +47,8 @@ string Place(const string &in file, int &out count)
     double dx = Round(x0 + fx * distance) - x0, dy = Round(y0 + fy * distance) - y0, dz = Round(z0 + fz * distance) - z0;
     if (dx == 0 && dy == 0 && dz == 0)
         return "";
-    for (uint i = 0; i < made.length(); i++)
-    {
-        double x, y, z;
-        if (Editor::GetLocation(made[i], x, y, z))
-            Editor::SetLocation(made[i], x + dx, y + dy, z + dz);
-    }
-    Editor::Select(made);           // the editor's own pivot (the gizmo) follows the pieces
+    // the spawn leaves the prefab selected: moved as one, its pivot (the gizmo) with it, in one call
+    Editor::MoveSelection(dx, dy, dz);
     return "";
 }
 
