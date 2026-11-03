@@ -25,6 +25,7 @@ UI::TextInput@ filterInput;
 array<Library::Rec@> rowRecs;
 array<int> rowCards;
 array<UI::Button@> moreButtons, foldButtons;
+array<int> foldCards;           // each section's title: a click anywhere on it folds or opens the section
 string shownFilter;
 int shownChanges = -1, listChanges = -1;
 bool listDirty = true;
@@ -158,6 +159,7 @@ void RebuildList()
     rowCards.resize(0);
     moreButtons.resize(0);
     foldButtons.resize(0);
+    foldCards.resize(0);
     array<string> titles = {"local only", "published by you", "downloaded"};
     for (uint s = 0; s < 3; s++)
     {
@@ -170,7 +172,9 @@ void RebuildList()
                 rows.insertLast(r);
         }
         bool folded = Folded(int(s));
-        win.NewRow();
+        int title = win.StartCard(true);
+        win.SetCardStyle(title, 0, 0, 0, 0, 0, 2);
+        foldCards.insertLast(title);
         UI::Button@ fold = win.AddIconButton(folded ? "play" : "down");
         fold.SetSize(26, 22);
         fold.SetTooltip(folded ? "show " + titles[s] : "fold " + titles[s]);
@@ -178,6 +182,8 @@ void RebuildList()
         foldButtons.insertLast(fold);
         win.AddText(titles[s], 19);
         Muted(win.AddText("" + rows.length(), 14));
+        win.AddSpace(0);                // the title row is as wide as the tab, so all of it takes the click
+        win.EndCard();
         if (folded)
             continue;
         if (rows.length() == 0)
@@ -691,7 +697,7 @@ void Update()
         if (storeButton.Clicked())
             Store::Open();
         for (uint i = 0; i < foldButtons.length(); i++)
-            if (foldButtons[i].Clicked())
+            if (foldButtons[i].Clicked() || win.CardClicked(foldCards[i]))
             {
                 SetFolded(int(i), !Folded(int(i)));
                 listDirty = true;
