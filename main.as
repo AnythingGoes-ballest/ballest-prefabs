@@ -40,6 +40,7 @@ void Main()
 
 void Update(float dt)
 {
+    Library::MeasureSome();
     Server::Update();
     Jobs::Update();
     if (!Server::Fake())

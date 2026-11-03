@@ -133,6 +133,8 @@ string Badge(Library::Rec@ r, float &out red, float &out green, float &out blue)
 
 string Meta(Library::Rec@ r)
 {
+    if (r.pieces < 0)
+        return "measuring...";
     string size = SizeText(r.size);
     return r.pieces + " pieces" + (size == "" ? "" : " · " + size);
 }
@@ -196,7 +198,7 @@ void RebuildList()
             Library::Rec@ r = rows[i];
             int card = win.StartCard(true);
             win.AddImage(ThumbOf(r.thumb), 64, 40);
-            Wrapped(win.AddText(Shorten(r.name, 40), 16), CARD_NAME_W);
+            Wrapped(win.AddText(CardName(r.name), 16), CARD_NAME_W);
             win.AddSpace(0);
             UI::Button@ more = win.AddButton("more");
             Secondary(more);
@@ -627,6 +629,16 @@ void PlaceRec(Library::Rec@ r)
         Jobs::Say(failed, true);
     else if (Jobs::messageBad)
         Jobs::Say("", false);           // an old problem is over once a prefab is placed
+}
+
+// A name for a card: wrapped at its width, so any word longer than a line (no space to break at) is cut short.
+string CardName(const string &in name)
+{
+    array<string>@ words = name.split(" ");
+    for (uint i = 0; i < words.length(); i++)
+        if (words[i].length() > 15)
+            words[i] = Shorten(words[i], 15);
+    return Shorten(Join(words, " "), 40);
 }
 
 // Which sections of the list are folded (kept in storage).

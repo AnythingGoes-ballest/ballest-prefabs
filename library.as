@@ -101,11 +101,28 @@ void Reconcile()
         Rec r;
         r.file = files[i];
         r.name = files[i];
-        Measure(r);
+        r.pieces = -1;                  // measured a few at a time over the next frames (MeasureSome)
         recs.insertLast(r);
         Save(r);
     }
     SaveList();
+}
+
+// Prefabs not measured yet (a first start, or files the game saved), measured while this frame has time: reading and
+// parsing a big prefab takes a few ms, and a call that runs past the host's budget stops the plugin.
+void MeasureSome()
+{
+    double until = Host::Time() + 0.012;
+    for (uint i = 0; i < recs.length(); i++)
+    {
+        if (recs[i].pieces >= 0)
+            continue;
+        Measure(recs[i]);
+        Save(recs[i]);
+        Jobs::changes++;
+        if (Host::Time() >= until)
+            return;
+    }
 }
 
 Rec@ Find(const string &in file)
